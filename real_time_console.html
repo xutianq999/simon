@@ -1,0 +1,836 @@
+<!--
+ * @Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+ * @Date: 2024-12-20 13:37:38
+ * @LastEditors: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+ * @LastEditTime: 2024-12-21 00:39:30
+ * @FilePath: \todo\index copy 2.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+ 
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>AI实时通话</title>
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
+    <style>
+        body {
+            background-color: #f9f9f9;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: auto;
+        }
+        .mic-select, .camera-select {
+            margin-bottom: 20px;
+        }
+        .volume-meter {
+            width: 300px;
+            height: 20px;
+            background: #eee;
+            margin: 10px 0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .volume-bar {
+            width: 0%;
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.1s;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            min-height: 100px;
+            white-space: pre-wrap;
+        }
+        .camera-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        #videoPreview {
+            width: 640px;
+            height: 480px;
+            background: #eee;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .camera-controls {
+            margin: 10px 0;
+        }
+        .camera-controls button {
+            padding: 8px 16px;
+            margin: 0 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        .camera-controls button:hover {
+            background-color: #45a049;
+        }
+        .camera-controls button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        /* 新增样式 */
+        .upload-section {
+            margin-top: 20px;
+        }
+        .analyze-section {
+            margin-top: 20px;
+        }
+        #analyzeResult {
+            margin-top: 10px;
+        }
+        #aiAudioPlayer {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI实时通话</h1>
+        
+        <div class="camera-container">
+            <h2>摄像头预览</h2>
+            <div class="camera-select">
+                <label>选择摄像头：</label>
+                <select id="cameraSelect"></select>
+            </div>
+            <video id="videoPreview" autoplay playsinline></video>
+            <canvas id="canvas" style="display: none;"></canvas>
+            <div class="camera-controls">
+                <button id="startCameraBtn">开启摄像头</button>
+                <button id="stopCameraBtn" disabled>关闭摄像头</button>
+                <button id="startCaptureBtn" disabled>开始自动拍照</button>
+                <button id="stopCaptureBtn" disabled>停止自动拍照</button>
+                <button id="analyzeFrameBtn" disabled>解析当前画面</button>
+            </div>
+            <div id="captureResult"></div>
+            <div id="frameAnalysisResult"></div>
+        </div>
+
+        <div class="mic-select">
+            <label>选择麦克风：</label>
+            <select id="micSelect"></select>
+            <div class="volume-meter">
+                <div id="volumeBar" class="volume-bar"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn">开始识别</button>
+            <button id="stopBtn" disabled>停止识别</button>
+        </div>
+
+        <div class="result" id="result">等待识别结果...</div>
+
+        <!-- 添加图片上传区域 -->
+        <div class="upload-section">
+            <input type="file" id="imageInput" accept="image/*">
+            <button onclick="uploadImage()">上传图片</button>
+            <div id="uploadResult"></div>
+            
+            <!-- 新增：图片解析部分 -->
+            <div class="analyze-section" style="margin-top: 20px;">
+                <input type="text" id="imageUrlInput" placeholder="输入图片URL" style="width: 300px;">
+                <button onclick="analyzeImage()">解析图片</button>
+                <div id="analyzeResult" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        
+        
+
+        const config = {
+            hostUrl: "wss://iat-api.xfyun.cn/v2/iat",
+            host: "iat-api.xfyun.cn",
+            appid: "请输入讯飞开放平台的 APPID",
+            apiSecret: "请输入讯飞开放平台的 APISecret",
+            apiKey: "请输入讯飞开放平台的 APIKey",
+            uri: "/v2/iat"
+        };
+
+        // 全局变量
+        let audioContext = null;
+        let mediaStream = null;
+        let scriptProcessor = null;
+        let status = 0;  // 帧状态：0-第一帧，1-中间帧，2-最后帧
+        let ws = null;
+        let resultText = [];
+        let silenceTimer = null;
+        let isSpeaking = false;
+        const SILENCE_THRESHOLD = 15;  // 音量阈值
+        const SILENCE_DURATION = 1000;  // 静音持续时间阈值（毫秒）
+
+        // 获取DOM元素
+        const micSelect = document.getElementById('micSelect');
+        const volumeBar = document.getElementById('volumeBar');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resultDiv = document.getElementById('result');
+
+        // 添加摄像头相关变量
+        const cameraSelect = document.getElementById('cameraSelect');
+        const videoPreview = document.getElementById('videoPreview');
+        let videoStream = null;
+
+        // 添加摄像头控制按钮的引用
+        const startCameraBtn = document.getElementById('startCameraBtn');
+        const stopCameraBtn = document.getElementById('stopCameraBtn');
+
+        // 添加新变量
+        const canvas = document.getElementById('canvas');
+        const startCaptureBtn = document.getElementById('startCaptureBtn');
+        const stopCaptureBtn = document.getElementById('stopCaptureBtn');
+        const captureResult = document.getElementById('captureResult');
+        let captureInterval = null;
+
+        // 添加新的按钮引用
+        const analyzeFrameBtn = document.getElementById('analyzeFrameBtn');
+        const frameAnalysisResult = document.getElementById('frameAnalysisResult');
+
+        // 初始化麦克风列表
+        async function initMicrophoneList() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const mics = devices.filter(device => device.kind === 'audioinput');
+                
+                micSelect.innerHTML = '';
+                mics.forEach(mic => {
+                    const option = document.createElement('option');
+                    option.value = mic.deviceId;
+                    option.text = mic.label || `麦克风 ${micSelect.length + 1}`;
+                    micSelect.appendChild(option);
+                });
+
+                // 如果没有权限，请求一次权限以获取设备标签
+                if (mics.some(mic => !mic.label)) {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream.getTracks().forEach(track => track.stop());
+                    await initMicrophoneList();
+                }
+            } catch (error) {
+                console.error('获取麦克风列表失败:', error);
+            }
+        }
+
+        // 初始化摄像头列表
+        async function initCameraList() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(device => device.kind === 'videoinput');
+                
+                cameraSelect.innerHTML = '';
+                cameras.forEach(camera => {
+                    const option = document.createElement('option');
+                    option.value = camera.deviceId;
+                    option.text = camera.label || `摄像头 ${cameraSelect.length + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+
+                // 如果没有权限，请求一次权限以获取设备标签
+                if (cameras.some(camera => !camera.label)) {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    stream.getTracks().forEach(track => track.stop());
+                    await initCameraList();
+                }
+            } catch (error) {
+                console.error('获取摄像头列表失败:', error);
+            }
+        }
+
+        // 开启摄像头
+        async function startCamera(deviceId) {
+            try {
+                if (videoStream) {
+                    videoStream.getTracks().forEach(track => track.stop());
+                }
+
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        deviceId: deviceId ? { exact: deviceId } : undefined,
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                });
+
+                videoPreview.srcObject = videoStream;
+                
+                startCameraBtn.disabled = true;
+                stopCameraBtn.disabled = false;
+                startCaptureBtn.disabled = false;
+                analyzeFrameBtn.disabled = false;  // 启用帧解析按钮
+            } catch (error) {
+                console.error('启动摄像头失败:', error);
+                alert('启动摄像头失败: ' + error.message);
+            }
+        }
+
+        // 停止摄像头
+        function stopCamera() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+                videoPreview.srcObject = null;
+                
+                startCameraBtn.disabled = false;
+                stopCameraBtn.disabled = true;
+                startCaptureBtn.disabled = true;
+                stopCaptureBtn.disabled = true;
+                analyzeFrameBtn.disabled = true;  // 禁用帧解析按钮
+                stopAutoCapture();
+            }
+        }
+
+        // 监听摄像头切换
+        cameraSelect.onchange = () => {
+            if (!startCameraBtn.disabled) {
+                // 只有在摄像头开启状态下才自动切换
+                startCamera(cameraSelect.value);
+            }
+        };
+
+        // 添加摄像头控制按钮的事件监听
+        startCameraBtn.onclick = () => {
+            startCamera(cameraSelect.value);
+        };
+
+        stopCameraBtn.onclick = stopCamera;
+
+        // 生成鉴权签名
+        function getAuthStr(date) {
+            try {
+                // 1. 构建签名原始文本
+                const signatureOrigin = `host: ${config.host}\ndate: ${date}\nGET ${config.uri} HTTP/1.1`;
+                console.log('签名原始文本:', signatureOrigin);
+
+                // 2. 使用 HMAC-SHA256 进行加密
+                const signatureSha = CryptoJS.HmacSHA256(signatureOrigin, config.apiSecret);
+                const signature = CryptoJS.enc.Base64.stringify(signatureSha);
+                console.log('签名结果:', signature);
+
+                // 3. 构建授权原始文本
+                const authorizationOrigin = `api_key="${config.apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+                console.log('授权原始文本:', authorizationOrigin);
+
+                // 4. Base64 编码
+                const authorization = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(authorizationOrigin));
+                console.log('最终授权字符串:', authorization);
+
+                return authorization;
+            } catch (error) {
+                console.error('生成鉴权签名失败:', error);
+                throw error;
+            }
+        }
+
+        // 开始识别
+        async function startRecognition() {
+            try {
+                // 获取麦克风权限
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        deviceId: micSelect.value ? { exact: micSelect.value } : undefined,
+                        sampleRate: 16000,
+                        channelCount: 1
+                    }
+                });
+
+                // 创建 WebSocket 连接
+                const date = new Date().toUTCString();
+                console.log('当前时间:', date);
+
+                const authorization = getAuthStr(date);
+                const url = `${config.hostUrl}?authorization=${encodeURIComponent(authorization)}&date=${encodeURIComponent(date)}&host=${config.host}`;
+                console.log('WebSocket URL:', url);
+
+                ws = new WebSocket(url);
+
+                ws.onopen = () => {
+                    console.log("WebSocket 连接已建立");
+                    startAudioProcessing();
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                };
+
+                ws.onmessage = (e) => {
+                    const result = JSON.parse(e.data);
+                    if (result.code !== 0) {
+                        console.error(`错误码：${result.code}，错误信息：${result.message}`);
+                        return;
+                    }
+
+                    // 处理识别结果
+                    if (result.data && result.data.result) {
+                        // 只获取当前帧的文本
+                        let currentText = '';
+                        const currentResult = result.data.result;
+                        if (currentResult.ws) {
+                            currentResult.ws.forEach(ws => {
+                                ws.cw.forEach(cw => {
+                                    currentText += cw.w;
+                                });
+                            });
+                        }
+                        
+                        // 只显示当前识别到的新内容
+                        if (currentText.trim()) {
+                            resultDiv.textContent = currentText;
+                        }
+                    }
+                };
+
+                ws.onerror = (e) => {
+                    console.error("WebSocket 错误:", e);
+                    alert('WebSocket 连接失败，请检查认证信息是否正确');
+                };
+
+                ws.onclose = () => {
+                    console.log("WebSocket连接已关闭");
+                    stopRecognition();
+                };
+
+            } catch (error) {
+                console.error('启动识别失败:', error);
+                alert('启动识别失败: ' + error.message);
+            }
+        }
+
+        // 开始音频处理
+        function startAudioProcessing() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                sampleRate: 16000
+            });
+            
+            const source = audioContext.createMediaStreamSource(mediaStream);
+            scriptProcessor = audioContext.createScriptProcessor(2048, 1, 1);
+            
+            scriptProcessor.onaudioprocess = processAudio;
+            source.connect(scriptProcessor);
+            scriptProcessor.connect(audioContext.destination);
+
+            // 音量显示和语音检测
+            const analyser = audioContext.createAnalyser();
+            source.connect(analyser);
+            analyser.fftSize = 256;
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            function updateVolume() {
+                if (!audioContext) return;
+                analyser.getByteFrequencyData(dataArray);
+                const volume = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                volumeBar.style.width = `${Math.min(100, volume)}%`;
+
+                // 检测是否有声音
+                if (volume > SILENCE_THRESHOLD) {
+                    if (!isSpeaking) {
+                        isSpeaking = true;
+                        console.log('检测到说话');
+                        resultDiv.style.backgroundColor = '#e6ffe6';  // 绿色背景表示正在说话
+                    }
+                    // 重置静音计时器
+                    if (silenceTimer) {
+                        clearTimeout(silenceTimer);
+                    }
+                    silenceTimer = setTimeout(() => {
+                        isSpeaking = false;
+                        console.log('检测到停止说话');
+                        resultDiv.style.backgroundColor = '';  // 恢复正常背景
+                    }, SILENCE_DURATION);
+                }
+
+                requestAnimationFrame(updateVolume);
+            }
+            updateVolume();
+        }
+
+        // 处理音频数据
+        function processAudio(e) {
+            const audioData = e.inputBuffer.getChannelData(0);
+            const output = new Int16Array(audioData.length);
+            for (let i = 0; i < audioData.length; i++) {
+                output[i] = audioData[i] * 0x7FFF;
+            }
+            sendAudioData(output.buffer);
+        }
+
+        // 发送音频数据
+        function sendAudioData(buffer) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+            // 将音频数据转换为Base64
+            const audioArray = new Uint8Array(buffer);
+            let base64Audio = '';
+            const chunk = 8192;
+            
+            for (let i = 0; i < audioArray.length; i += chunk) {
+                base64Audio += String.fromCharCode.apply(null, 
+                    audioArray.slice(i, Math.min(i + chunk, audioArray.length))
+                );
+            }
+            
+            base64Audio = btoa(base64Audio);
+
+            // 构造发送的数据帧
+            const frame = {
+                common: status === 0 ? { app_id: config.appid } : undefined,
+                business: status === 0 ? {
+                    language: "zh_cn",
+                    domain: "iat",
+                    accent: "mandarin",
+                    dwa: "wpgs",
+                    vad_eos: 5000
+                } : undefined,
+                data: {
+                    status: status,
+                    format: "audio/L16;rate=16000",
+                    encoding: "raw",
+                    audio: base64Audio
+                }
+            };
+
+            if (status === 0) status = 1;
+            ws.send(JSON.stringify(frame));
+        }
+
+        // 停止识别
+        function stopRecognition() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                status = 2;
+                sendAudioData(new ArrayBuffer(0));
+                setTimeout(() => ws.close(), 100);
+            }
+
+            if (audioContext) {
+                scriptProcessor.disconnect();
+                audioContext.close();
+                audioContext = null;
+            }
+
+            if (mediaStream) {
+                // 只停止音频轨道，不影响视频轨道
+                mediaStream.getAudioTracks().forEach(track => track.stop());
+            }
+
+            status = 0;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            volumeBar.style.width = '0%';
+        }
+
+        // 事件监听
+        startBtn.onclick = startRecognition;
+        stopBtn.onclick = stopRecognition;
+
+        // 初始化
+        initMicrophoneList();
+        navigator.mediaDevices.addEventListener('devicechange', initMicrophoneList);
+        initCameraList();
+        navigator.mediaDevices.addEventListener('devicechange', initCameraList);
+
+        // 图片上传功能
+        async function uploadImage() {
+            const fileInput = document.getElementById('imageInput');
+            const resultDiv = document.getElementById('uploadResult');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('请选择要上传的图片');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', fileInput.files[0]);
+
+            try {
+                const response = await fetch('http://localhost:3000/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <p>上传成功！</p>
+                        <img src="${result.imageUrl}" alt="已上传的图片" style="max-width: 300px;">
+                        <p>图片URL: ${result.imageUrl}</p>
+                    `;
+                    document.getElementById('imageUrlInput').value = result.imageUrl;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">上传失败: ${result.error}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">上传失败: ${error.message}</p>`;
+            }
+        }
+
+        // 添加自动拍照相关函数
+        async function captureAndUpload() {
+            // 设置canvas大小与视频一致
+            canvas.width = videoPreview.videoWidth;
+            canvas.height = videoPreview.videoHeight;
+            
+            // 将视频帧绘制到canvas
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+            
+            // 将canvas转换为blob
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('image', blob, `capture-${Date.now()}.jpg`);
+
+                try {
+                    const response = await fetch('http://localhost:3000/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        captureResult.innerHTML = `
+                            <p>最新拍照上传成功！</p>
+                            <img src="${result.imageUrl}" alt="已上传的图片" style="max-width: 200px;">
+                            <p>时间: ${new Date().toLocaleTimeString()}</p>
+                        `;
+                    } else {
+                        captureResult.innerHTML = `<p style="color: red;">上传失败: ${result.error}</p>`;
+                    }
+                } catch (error) {
+                    captureResult.innerHTML = `<p style="color: red;">上传失败: ${error.message}</p>`;
+                }
+            }, 'image/jpeg', 0.8);
+        }
+
+        function startAutoCapture() {
+            captureInterval = setInterval(captureAndUpload, 2000);  // 每2秒拍照一次
+            startCaptureBtn.disabled = true;
+            stopCaptureBtn.disabled = false;
+        }
+
+        function stopAutoCapture() {
+            if (captureInterval) {
+                clearInterval(captureInterval);
+                captureInterval = null;
+            }
+            startCaptureBtn.disabled = false;
+            stopCaptureBtn.disabled = true;
+        }
+
+        // 添加按钮事件监听
+        startCaptureBtn.onclick = startAutoCapture;
+        stopCaptureBtn.onclick = stopAutoCapture;
+
+        // 修改图片解析函数
+        async function analyzeImage() {
+            const imageUrl = document.getElementById('imageUrlInput').value;
+            const resultDiv = document.getElementById('analyzeResult');
+            
+            if (!imageUrl) {
+                alert('请输入图片URL');
+                return;
+            }
+
+            resultDiv.innerHTML = '<p style="color: #666;">正在解析图片，请稍候...</p>';
+
+            try {
+                const response = await fetch('https://api.coze.cn/v1/workflow/run', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer 请输入 Coze API 密钥',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        workflow_id: "请输入 Coze Workflow ID",
+                        parameters: {
+                            said: "你在视频中看到了什么呀",
+                            pic: imageUrl
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.code === 0 && data.data) {
+                    try {
+                        const parsedData = JSON.parse(data.data);
+                        resultDiv.innerHTML = `
+                            <div style="border: 1px solid #ccc; padding: 10px; margin-top: 5px;">
+                                ${parsedData.output}
+                                <div style="margin-top: 10px;">
+                                    <img src="${imageUrl}" alt="解析的图片" style="max-width: 300px;">
+                                </div>
+                            </div>
+                        `;
+                    } catch (e) {
+                        console.error('解析 data 失败:', e);
+                        resultDiv.innerHTML = `<p style="color: red;">解析数据失败: ${e.message}</p>`;
+                    }
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">请求失败: ${data.msg || '未知错误'}</p>`;
+                }
+
+            } catch (error) {
+                console.error('Analysis failed:', error);
+                resultDiv.innerHTML = `<p style="color: red;">解析失败: ${error.message}</p>`;
+            }
+        }
+
+        // 修改帧解析函数
+        async function analyzeCurrentFrame() {
+            if (!videoStream) {
+                alert('请先开启摄像头');
+                return;
+            }
+
+            // 获取当前语音识别的结果
+            const currentSpeech = resultDiv.textContent || "你在视频中看到了什么呀";  // 如果没有语音则使用默认文本
+
+            // 设置canvas大小与视频一致
+            canvas.width = videoPreview.videoWidth;
+            canvas.height = videoPreview.videoHeight;
+            
+            // 将视频帧绘制到canvas
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+            
+            // 将canvas转换为blob
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('image', blob, `frame-${Date.now()}.jpg`);
+
+                try {
+                    // 先上传图片
+                    const uploadResponse = await fetch('http://localhost:3000/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const uploadResult = await uploadResponse.json();
+                    
+                    if (uploadResult.success) {
+                        // 使用返回的URL进行解析
+                        frameAnalysisResult.innerHTML = '<p style="color: #666;">正在解析画面，请稍候...</p>';
+                        
+                        // 调用现有的解析函数，使用语音识别的结果
+                        const response = await fetch('https://api.coze.cn/v1/workflow/run', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer 请输入 Coze API 密钥',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                workflow_id: "请输入 Coze Workflow ID",
+                                parameters: {
+                                    said: currentSpeech,
+                                    pic: uploadResult.imageUrl
+                                }
+                            })
+                        });
+
+                        const data = await response.json();
+                        
+                        if (data.code === 0 && data.data) {
+                            const parsedData = JSON.parse(data.data);
+                            frameAnalysisResult.innerHTML = `
+                                <div style="border: 1px solid #ccc; padding: 10px; margin-top: 5px;">
+                                    <p><strong>你说：</strong>${currentSpeech}</p>
+                                    <p><strong>AI回答：</strong>${parsedData.output}</p>
+                                    <div style="margin-top: 10px;">
+                                        <img src="${uploadResult.imageUrl}" alt="当前画面" style="max-width: 300px;">
+                                    </div>
+                                    <div id="aiAudioPlayer"></div>
+                                </div>
+                            `;
+                            // 将 AI 回答转换为语音
+                            synthesizeSpeech(parsedData.output);
+                        } else {
+                            frameAnalysisResult.innerHTML = '<p style="color: red;">解析失败</p>';
+                        }
+                    } else {
+                        frameAnalysisResult.innerHTML = '<p style="color: red;">图片上传失败</p>';
+                    }
+                } catch (error) {
+                    console.error('Frame analysis failed:', error);
+                    frameAnalysisResult.innerHTML = `<p style="color: red;">解析失败: ${error.message}</p>`;
+                }
+            }, 'image/jpeg', 0.8);
+        }
+
+        // 添加按钮事件监听
+        analyzeFrameBtn.onclick = analyzeCurrentFrame;
+
+        // 添加语音合成函数
+        async function synthesizeSpeech(text) {
+            if (!text) {
+                console.error('没有要转换的文本');
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:3001/synthesize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        input: text,
+                        voice: 'alloy'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('语音合成失败');
+                }
+
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                // 创建音频播放器并自动播放
+                const audioPlayer = document.getElementById('aiAudioPlayer');
+                audioPlayer.innerHTML = `
+                    <audio autoplay controls src="${audioUrl}">
+                        您的浏览器不支持音频播放
+                    </audio>
+                `;
+            } catch (error) {
+                console.error('语音合成错误:', error);
+                const audioPlayer = document.getElementById('aiAudioPlayer');
+                audioPlayer.innerHTML = `<p style="color: red;">语音合成失败: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
