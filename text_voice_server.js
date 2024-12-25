@@ -24,7 +24,7 @@ app.post('/synthesize', async (req, res) => {
         const response = await fetch('https://xiaoai.plus/v1/audio/speech', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer sk-GVQqc3TyGnjz40y6iOCqFnM1MYV3EJqZkQT3m9yc7uBCtEB7',  // 替换为你的实际 API key
+                'Authorization': 'Bearer xxxxxxxxxxx',  // 替换为你的实际 API key
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
